@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>mitaBuy-Gui</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #f5f7fa;
+    }
+    .header-gradient {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .card-shadow {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    .inventory-slot {
+      width: 64px;
+      height: 64px;
+      position: relative;
+      transition: all 0.2s ease;
+      border-radius: 6px;
+      background-color: #f8f9fa;
+      border: 2px solid #e2e8f0;
+    }
+    .inventory-slot:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s;
+      z-index: 10;
+      min-width: 200px;
+    }
+    .group:hover .tooltip {
+      opacity: 1;
+      visibility: visible;
+    }
+    .item-count {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      font-size: 0.75rem;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    .suitable-item {
+      border: 2px solid #48bb78;
+      background-color: #f0fff4;
+    }
+    .enchanted-item {
+      position: relative;
+    }
+    .enchanted-item::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(128, 0, 128, 0.3);
+      border-radius: 4px;
+    }
+    .chat-message {
+      animation: fadeIn 0.3s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .collapsible-content {
+      display: none;
+      padding: 10px;
+      border-top: 1px solid #ebedef;
+    }
+    .collapsible-content.active {
+      display: block;
+    }
+    .sale-btn {
+      background-color: #f59e0b;
+    }
+    .sale-btn:hover {
+      background-color: #d97706;
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="header-gradient py-6 shadow-lg">
+    <div class="container mx-auto px-4">
+      <h1 class="text-3xl font-bold text-center text-white">mitaBuy-by trh.zip(дс) </h1>
+      <p class="text-center text-blue-100 mt-2">Автоматическая покупка и продажа предметов на аукционе</p>
+    </div>
+  </div>
+
+  <div class="container mx-auto px-4 py-8">
+    <!-- Настройки подключения -->
+    <div class="bg-white rounded-lg card-shadow p-6 mb-6">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+        <i class="material-icons mr-2">settings</i>
+        <button class="flex justify-between items-center w-full focus:outline-none" onclick="toggleVisibility('botSettings', 'botSettingsToggle')">
+          <span>Настройки подключения</span>
+          <span id="botSettingsToggle" class="toggle-icon">
+            <i class="material-icons">expand_more</i>
+          </span>
+        </button>
+      </h2>
+      <div id="botSettings" class="collapsible-content">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Логин</label>
+            <input type="text" id="botUsername" class="w-full px-3 py-2 border rounded" placeholder="dalbaeb" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Пароль</label>
+            <input type="password" id="botPassword" class="w-full px-3 py-2 border rounded" placeholder="Необязательно">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">IP сервера</label>
+            <input type="text" id="botHost" class="w-full px-3 py-2 border rounded" placeholder="mc.spookytime.net" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Порт</label>
+            <input type="number" id="botPort" class="w-full px-3 py-2 border rounded" value="25565" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Версия</label>
+            <input type="text" id="botVersion" class="w-full px-3 py-2 border rounded" value="1.16.5" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Номер анархии</label>
+            <input type="text" id="botAnarchy" class="w-full px-3 py-2 border rounded" value="107" required>
+          </div>
+        </div>
+        <div class="text-center mt-4">
+          <button id="startBotBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors flex items-center justify-center mx-auto">
+            <i class="material-icons mr-2">power_settings_new</i>Запустить бота
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Статистика бота -->
+    <div class="bg-white rounded-lg card-shadow p-6 mb-6">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+        <i class="material-icons mr-2">analytics</i>
+        <button class="flex justify-between items-center w-full focus:outline-none" onclick="toggleVisibility('botStats', 'botStatsToggle')">
+          <span>Статистика бота</span>
+          <span id="botStatsToggle" class="toggle-icon">
+            <i class="material-icons">expand_more</i>
+          </span>
+        </button>
+      </h2>
+      <div id="botStats" class="collapsible-content active">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="stat-card bg-gray-50 p-4 rounded-lg">
+            <div class="flex items-center">
+              <i class="material-icons text-red-500 mr-2">favorite</i>
+              <span class="text-sm text-gray-600">HP</span>
+            </div>
+            <div class="text-2xl font-bold text-red-600 mt-1" id="healthStat">20</div>
+          </div>
+          <div class="stat-card bg-gray-50 p-4 rounded-lg">
+            <div class="flex items-center">
+              <i class="material-icons text-yellow-500 mr-2">fastfood</i>
+              <span class="text-sm text-gray-600">Еда</span>
+            </div>
+            <div class="text-2xl font-bold text-yellow-600 mt-1" id="foodStat">20</div>
+          </div>
+          <div class="stat-card bg-gray-50 p-4 rounded-lg">
+            <div class="flex items-center">
+              <i class="material-icons text-green-500 mr-2">star</i>
+              <span class="text-sm text-gray-600">XP</span>
+            </div>
+            <div class="text-2xl font-bold text-green-600 mt-1" id="xpStat">0</div>
+          </div>
+          <div class="stat-card bg-gray-50 p-4 rounded-lg">
+            <div class="flex items-center">
+              <i class="material-icons text-blue-500 mr-2">water_drop</i>
+              <span class="text-sm text-gray-600">Насыщение</span>
+            </div>
+            <div class="text-2xl font-bold text-blue-600 mt-1" id="saturationStat">0</div>
+          </div>
+          <div class="stat-card bg-gray-50 p-4 rounded-lg">
+            <div class="flex items-center">
+              <i class="material-icons text-purple-500 mr-2">attach_money</i>
+              <span class="text-sm text-gray-600">ebal</span>
+            </div>
+            <div class="text-2xl font-bold text-purple-600 mt-1" id="botBalance">0</div>
+          </div>
+          <div class="stat-card bg-gray-50 p-4 rounded-lg">
+            <div class="flex items-center">
+              <i class="material-icons text-indigo-500 mr-2">trending_up</i>
+              <span class="text-sm text-gray-600">Заработок</span>
+            </div>
+            <div class="text-2xl font-bold text-indigo-600 mt-1" id="sessionIncome">0</div>
+          </div>
+          <div class="stat-card bg-gray-50 p-4 rounded-lg">
+            <div class="flex items-center">
+              <i class="material-icons text-teal-500 mr-2">shopping_bag</i>
+              <span class="text-sm text-gray-600">Купил</span>
+            </div>
+            <div class="text-2xl font-bold text-teal-600 mt-1" id="itemsBought">0</div>
+          </div>
+          <div class="stat-card bg-gray-50 p-4 rounded-lg">
+            <div class="flex items-center">
+              <i class="material-icons text-gray-500 mr-2">timer</i>
+              <span class="text-sm text-gray-600">на сколько ты задрот</span>
+            </div>
+            <div class="text-2xl font-bold text-gray-600 mt-1" id="uptimeStat">00:00:00</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Управление покупками -->
+    <div class="bg-white rounded-lg card-shadow p-6 mb-6">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+        <i class="material-icons mr-2">shopping_cart</i>
+        <button class="flex justify-between items-center w-full focus:outline-none" onclick="toggleVisibility('purchaseList', 'purchaseListToggle')">
+          <span>Настройки автопокупки</span>
+          <span id="purchaseListToggle" class="toggle-icon">
+            <i class="material-icons">expand_more</i>
+          </span>
+        </button>
+      </h2>
+      <div id="purchaseList" class="collapsible-content">
+        <div id="purchaseListContainer" class="space-y-4"></div>
+        <div class="flex justify-end gap-3 mt-4">
+          <button onclick="addNewItem()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center">
+            <i class="material-icons mr-1">add</i>Добавить предмет
+          </button>
+          <button id="updatePurchaseListBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center">
+            <i class="material-icons mr-1">save</i>Сохранить
+          </button>
+          <button onclick="exportConfig()" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center">
+            <i class="material-icons mr-1">file_download</i>Экспорт
+          </button>
+          <button onclick="importConfig()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center">
+            <i class="material-icons mr-1">file_upload</i>Импорт
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Управление продажами -->
+    <div class="bg-white rounded-lg card-shadow p-6 mb-6">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+        <i class="material-icons mr-2">sell</i>
+        <button class="flex justify-between items-center w-full focus:outline-none" onclick="toggleVisibility('saleList', 'saleListToggle')">
+          <span>Настройки автопродажи</span>
+          <span id="saleListToggle" class="toggle-icon">
+            <i class="material-icons">expand_more</i>
+          </span>
+        </button>
+      </h2>
+      <div id="saleList" class="collapsible-content">
+        <div id="saleListContainer" class="space-y-4"></div>
+        <div class="flex justify-end gap-3 mt-4">
+          <button onclick="addNewSaleItem()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center">
+            <i class="material-icons mr-1">add</i>Добавить предмет
+          </button>
+          <button id="updateSaleListBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center">
+            <i class="material-icons mr-1">save</i>Сохранить
+          </button>
+          <button onclick="exportSaleConfig()" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center">
+            <i class="material-icons mr-1">file_download</i>Экспорт
+          </button>
+          <button onclick="importSaleConfig()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center">
+            <i class="material-icons mr-1">file_upload</i>Импорт
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Инвентарь и аукцион -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <!-- Инвентарь бота -->
+      <div class="bg-white rounded-lg card-shadow p-6">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+          <i class="material-icons mr-2">backpack</i>
+          <button class="flex justify-between items-center w-full focus:outline-none" onclick="toggleVisibility('botInventorySection', 'botInventoryToggle')">
+            <span>Инвентарь бота</span>
+            <span id="botInventoryToggle" class="toggle-icon">
+              <i class="material-icons">expand_more</i>
+            </span>
+          </button>
+        </h2>
+        <div id="botInventorySection" class="collapsible-content active">
+          <div class="overflow-x-auto">
+            <div class="grid grid-cols-9 gap-1 w-max mx-auto" id="botInventory"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Аукцион -->
+      <div class="bg-white rounded-lg card-shadow p-6">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+          <i class="material-icons mr-2">store</i>
+          <button class="flex justify-between items-center w-full focus:outline-none" onclick="toggleVisibility('auctionSection', 'auctionToggle')">
+            <span>Аукцион</span>
+            <span id="auctionToggle" class="toggle-icon">
+              <i class="material-icons">expand_more</i>
+            </span>
+          </button>
+        </h2>
+        <div id="auctionSection" class="collapsible-content active">
+          <div class="overflow-x-auto">
+            <div class="grid grid-cols-9 gap-1 w-max mx-auto" id="auctionGrid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Чат -->
+    <div class="bg-white rounded-lg card-shadow p-6">
+      <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+        <i class="material-icons mr-2">chat</i>
+        <button class="flex justify-between items-center w-full focus:outline-none" onclick="toggleVisibility('chatSection', 'chatToggle')">
+          <span>Чат</span>
+          <span id="chatToggle" class="toggle-icon">
+            <i class="material-icons">expand_more</i>
+          </span>
+        </button>
+      </h2>
+      <div id="chatSection" class="collapsible-content active">
+        <div id="chat" class="h-64 overflow-y-auto mb-4 space-y-2"></div>
+        <div class="flex gap-2">
+          <input type="text" id="chatInput" placeholder="Введите сообщение..." 
+                class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300">
+          <button id="sendMessageButton" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+            <i class="material-icons">send</i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Шаблоны -->
+  <template id="itemTemplate">
+    <div class="item-card bg-gray-50 p-4 rounded-lg border border-gray-200">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ID предмета</label>
+          <input type="text" class="item-id w-full px-3 py-2 border rounded" placeholder="diamond">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Макс. цена за 1 шт.</label>
+          <input type="number" class="item-price w-full px-3 py-2 border rounded" placeholder="7500">
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Кастомное название</label>
+        <input type="text" class="item-custom-name w-full px-3 py-2 border rounded" placeholder="123 Талисман Крушителя 123">
+      </div>
+      <div class="enchant-section mb-4">
+        <div class="flex items-center gap-2 mb-2">
+          <h3 class="text-sm font-medium">Зачарования</h3>
+          <button onclick="addEnchantment(this)" class="text-xs bg-gray-100 px-2 py-1 rounded flex items-center">
+            <i class="material-icons text-base mr-1">add</i>Добавить
+          </button>
+        </div>
+        <div class="enchant-list flex flex-wrap gap-2"></div>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button onclick="removeItem(this)" class="text-red-500 hover:text-red-700 text-sm flex items-center">
+          <i class="material-icons text-base mr-1">delete</i>Удалить
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <template id="saleItemTemplate">
+    <div class="item-card bg-gray-50 p-4 rounded-lg border border-gray-200">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ID предмета</label>
+          <input type="text" class="item-id w-full px-3 py-2 border rounded" placeholder="diamond">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Цена продажи</label>
+          <input type="number" class="item-price w-full px-3 py-2 border rounded" placeholder="8000">
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Кастомное название</label>
+        <input type="text" class="item-custom-name w-full px-3 py-2 border rounded" placeholder="123 Талисман Крушителя 123">
+      </div>
+      <div class="flex justify-end gap-2">
+        <button onclick="removeSaleItem(this)" class="text-red-500 hover:text-red-700 text-sm flex items-center">
+          <i class="material-icons text-base mr-1">delete</i>Удалить
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    const socket = io();
+    const INVENTORY_SIZE = 90;
+    let purchaseItems = [];
+    let saleItems = [];
+
+    // Определяем иконки для переключения секций
+    const plusIcon = `<i class="material-icons">expand_more</i>`;
+    const minusIcon = `<i class="material-icons">expand_less</i>`;
+
+    // Функция для переключения видимости секций
+    window.toggleVisibility = (sectionId, toggleIconId) => {
+      const content = document.getElementById(sectionId);
+      const toggleIcon = document.getElementById(toggleIconId);
+      content.classList.toggle('active');
+      toggleIcon.innerHTML = content.classList.contains('active') ? minusIcon : plusIcon;
+    };
+
+    // Добавление нового предмета в список покупок
+    window.addNewItem = (item = {name: '', minPricePerUnit: 0, customName: '', enchants: {}}) => {
+      const template = document.getElementById('itemTemplate');
+      const clone = template.content.cloneNode(true);
+      const card = clone.querySelector('.item-card');
+      card.querySelector('.item-id').value = item.name || '';
+      card.querySelector('.item-price').value = item.minPricePerUnit || '';
+      card.querySelector('.item-custom-name').value = item.customName || '';
+      const enchantList = card.querySelector('.enchant-list');
+      Object.entries(item.enchants || {}).forEach(([id, level]) => {
+        enchantList.appendChild(createEnchantBadge(id, level));
+      });
+      document.getElementById('purchaseListContainer').appendChild(clone);
+    };
+
+    // Добавление нового предмета в список продаж
+    window.addNewSaleItem = (item = {name: '', price: 0, customName: ''}) => {
+      const template = document.getElementById('saleItemTemplate');
+      const clone = template.content.cloneNode(true);
+      const card = clone.querySelector('.item-card');
+      card.querySelector('.item-id').value = item.name || '';
+      card.querySelector('.item-price').value = item.price || '';
+      card.querySelector('.item-custom-name').value = item.customName || '';
+      document.getElementById('saleListContainer').appendChild(clone);
+    };
+
+    // Создание бейджа для зачарования
+    const createEnchantBadge = (id, level) => {
+      const div = document.createElement('div');
+      div.className = 'enchant-badge bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs flex items-center gap-1';
+      div.innerHTML = `${id} ${level}
+        <button onclick="this.parentElement.remove()" class="text-blue-600 hover:text-blue-700">
+          <i class="material-icons text-base">close</i>
+        </button>`;
+      div.dataset.id = id;
+      div.dataset.level = level;
+      return div;
+    };
+
+    // Добавление зачарования
+    window.addEnchantment = (button) => {
+      const card = button.closest('.enchant-section');
+      const id = prompt('ID зачарования (например: sharpness)');
+      if (!id) return;
+      const level = prompt('Минимальный уровень');
+      if (!level || isNaN(level)) {
+        alert('Уровень должен быть числом!');
+        return;
+      }
+      card.querySelector('.enchant-list').appendChild(createEnchantBadge(id, level));
+    };
+
+    // Удаление предмета из списка покупок
+    window.removeItem = (button) => {
+      button.closest('.item-card').remove();
+    };
+
+    // Удаление предмета из списка продаж
+    window.removeSaleItem = (button) => {
+      button.closest('.item-card').remove();
+    };
+
+    // Экспорт конфигурации покупок
+    window.exportConfig = () => {
+      const items = Array.from(document.querySelectorAll('#purchaseListContainer .item-card')).map(card => {
+        const enchants = Array.from(card.querySelectorAll('.enchant-badge')).reduce((acc, badge) => {
+          const id = badge.dataset.id;
+          const level = Number(badge.dataset.level);
+          if (id && !isNaN(level)) acc[id] = level;
+          return acc;
+        }, {});
+        return {
+          name: card.querySelector('.item-id').value.trim(),
+          minPricePerUnit: Number(card.querySelector('.item-price').value),
+          customName: card.querySelector('.item-custom-name').value.trim() || undefined,
+          enchants: enchants
+        };
+      });
+      const json = JSON.stringify(items, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'purchase_config.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // Экспорт конфигурации продаж
+    window.exportSaleConfig = () => {
+      const items = Array.from(document.querySelectorAll('#saleListContainer .item-card')).map(card => {
+        return {
+          name: card.querySelector('.item-id').value.trim(),
+          price: Number(card.querySelector('.item-price').value),
+          customName: card.querySelector('.item-custom-name').value.trim() || undefined
+        };
+      });
+      const json = JSON.stringify(items, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sale_config.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // Импорт конфигурации покупок
+    window.importConfig = () => {
+      const choice = confirm('Выберите способ загрузки:\n\nOK - Загрузить из файла\nОтмена - Вставить текст');
+      if (choice) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            try {
+              const config = JSON.parse(event.target.result);
+              loadConfig(config);
+            } catch (error) {
+              alert('Ошибка при загрузке конфига: ' + error.message);
+            }
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      } else {
+        const configText = prompt('Вставьте JSON конфигурации:');
+        if (!configText) return;
+        try {
+          const config = JSON.parse(configText);
+          loadConfig(config);
+        } catch (error) {
+          alert('Ошибка при загрузке конфига: ' + error.message);
+        }
+      }
+    };
+
+    // Импорт конфигурации продаж
+    window.importSaleConfig = () => {
+      const choice = confirm('Выберите способ загрузки:\n\nOK - Загрузить из файла\nОтмена - Вставить текст');
+      if (choice) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            try {
+              const config = JSON.parse(event.target.result);
+              loadSaleConfig(config);
+            } catch (error) {
+              alert('Ошибка при загрузке конфига продаж: ' + error.message);
+            }
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      } else {
+        const configText = prompt('Вставьте JSON конфигурации продаж:');
+        if (!configText) return;
+        try {
+          const config = JSON.parse(configText);
+          loadSaleConfig(config);
+        } catch (error) {
+          alert('Ошибка при загрузке конфига продаж: ' + error.message);
+        }
+      }
+    };
+
+    // Загрузка конфигурации покупок
+    const loadConfig = (config) => {
+      if (!Array.isArray(config)) throw new Error('Конфиг должен быть массивом');
+      document.getElementById('purchaseListContainer').innerHTML = '';
+      config.forEach(item => addNewItem(item));
+      alert('Конфиг покупок успешно загружен!');
+    };
+
+    // Загрузка конфигурации продаж
+    const loadSaleConfig = (config) => {
+      if (!Array.isArray(config)) throw new Error('Конфиг должен быть массивом');
+      document.getElementById('saleListContainer').innerHTML = '';
+      config.forEach(item => addNewSaleItem(item));
+      alert('Конфиг продаж успешно загружен!');
+    };
+
+    // Рендер инвентаря бота
+    const renderBotInventory = (items) => {
+      const grid = document.getElementById('botInventory');
+      grid.innerHTML = '';
+      
+      for (let i = 0; i < INVENTORY_SIZE; i++) {
+        const item = items.find(it => it.slot === i);
+        const slot = document.createElement('div');
+        slot.className = 'inventory-slot group';
+        
+        if (item) {
+          slot.innerHTML = `
+            <img src="https://raw.githubusercontent.com/wwmaxik/wwbuy_icons/main/icons/${item.id}.png" 
+                 class="w-full h-full object-contain p-1"
+                 onerror="this.src='https://raw.githubusercontent.com/wwmaxik/wwbuy_icons/main/icons/empty.png'">
+            <div class="item-count">${item.count}</div>
+            <div class="tooltip">
+              <div class="font-bold">${item.name}</div>
+              <div>ID: ${item.id}</div>
+              <div>Количество: ${item.count}</div>
+            </div>
+          `;
+        }
+        grid.appendChild(slot);
+      }
+    };
+
+    // Рендер аукциона
+    const renderAuction = (auctionItems) => {
+      const grid = document.getElementById('auctionGrid');
+      grid.innerHTML = '';
+      
+      for (let i = 0; i < INVENTORY_SIZE; i++) {
+        const item = auctionItems.find(it => it.slot === i);
+        const slot = document.createElement('div');
+        slot.className = `inventory-slot group ${item && isItemSuitable(item) ? 'suitable-item' : ''}`;
+        
+        if (item) {
+          const enchantedClass = Object.keys(item.enchantments).length > 0 ? 'enchanted-item' : '';
+          slot.innerHTML = `
+            <img src="https://raw.githubusercontent.com/wwmaxik/wwbuy_icons/main/icons/${item.id}.png" 
+                 class="w-full h-full object-contain p-1 ${enchantedClass}"
+                 onerror="this.src='https://raw.githubusercontent.com/wwmaxik/wwbuy_icons/main/icons/empty.png'">
+            <div class="item-count">${item.count}</div>
+            <div class="tooltip">
+              <div class="font-bold">${item.name}</div>
+              <div>Цена: $${item.price}</div>
+              <div>Цена за 1: $${Math.round(item.pricePerUnit)}</div>
+              ${Object.keys(item.enchantments).length > 0 ? 
+                '<div class="mt-2 text-yellow-300">' + 
+                Object.entries(item.enchantments).map(([id, lvl]) => `${id} ${lvl}`).join('<br>') + 
+                '</div>' : ''}
+            </div>
+          `;
+        }
+        grid.appendChild(slot);
+      }
+    };
+
+    // Проверка подходит ли предмет для покупки
+    const isItemSuitable = (item) => {
+      return purchaseItems.some(purchase => 
+        purchase.name === item.id && 
+        item.pricePerUnit <= purchase.minPricePerUnit &&
+        (!purchase.customName || item.name.includes(purchase.customName)) &&
+        Object.entries(purchase.enchants || {}).every(([id, level]) => 
+          item.enchantments[id] && item.enchantments[id] >= level
+        )
+      );
+    };
+
+    // Обработчик сохранения списка покупок
+    document.getElementById('updatePurchaseListBtn').addEventListener('click', () => {
+      purchaseItems = Array.from(document.querySelectorAll('#purchaseListContainer .item-card')).map(card => {
+        const enchants = Array.from(card.querySelectorAll('.enchant-badge')).reduce((acc, badge) => {
+          const id = badge.dataset.id;
+          const level = Number(badge.dataset.level);
+          if (id && !isNaN(level)) acc[id] = level;
+          return acc;
+        }, {});
+        return {
+          name: card.querySelector('.item-id').value.trim(),
+          minPricePerUnit: Number(card.querySelector('.item-price').value),
+          customName: card.querySelector('.item-custom-name').value.trim() || undefined,
+          enchants: enchants
+        };
+      });
+      
+      fetch('/updatePurchaseList', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purchaseList: purchaseItems })
+      })
+      .then(() => alert('Настройки покупок сохранены!'))
+      .catch(err => alert('Ошибка: ' + err));
+    });
+
+    // Обработчик сохранения списка продаж
+    document.getElementById('updateSaleListBtn').addEventListener('click', () => {
+      saleItems = Array.from(document.querySelectorAll('#saleListContainer .item-card')).map(card => {
+        return {
+          name: card.querySelector('.item-id').value.trim(),
+          price: Number(card.querySelector('.item-price').value),
+          customName: card.querySelector('.item-custom-name').value.trim() || undefined
+        };
+      });
+      
+      fetch('/updateSaleList', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saleList: saleItems })
+      })
+      .then(() => alert('Настройки продаж сохранены!'))
+      .catch(err => alert('Ошибка: ' + err));
+    });
+
+    // Обработчик запуска бота
+    document.getElementById('startBotBtn').addEventListener('click', () => {
+      const botConfig = {
+        username: document.getElementById('botUsername').value.trim(),
+        password: document.getElementById('botPassword').value.trim(),
+        host: document.getElementById('botHost').value.trim(),
+        port: document.getElementById('botPort').value.trim(),
+        version: document.getElementById('botVersion').value.trim(),
+        anarchy: document.getElementById('botAnarchy').value.trim()
+      };
+      if (!botConfig.username || !botConfig.host || !botConfig.port || !botConfig.version || !botConfig.anarchy) {
+        alert('Заполните обязательные поля: Логин, Хост, Порт, Версия, Анархия');
+        return;
+      }
+      fetch('/startBot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(botConfig)
+      })
+      .then(response => response.json())
+      .then(data => alert(data.status))
+      .catch(err => alert('Ошибка запуска бота: ' + err));
+    });
+
+    // Обработчик отправки сообщения
+    document.getElementById('sendMessageButton').addEventListener('click', () => {
+      const message = document.getElementById('chatInput').value.trim();
+      if (message) {
+        socket.emit('sendMessage', message);
+        document.getElementById('chatInput').value = '';
+      }
+    });
+
+    // Обработчик нажатия Enter в поле ввода сообщения
+    document.getElementById('chatInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('sendMessageButton').click();
+      }
+    });
+
+    // Socket listeners
+    socket.on('inventoryData', (items) => {
+      renderBotInventory(items);
+    });
+
+    socket.on('auctionData', (items) => {
+      renderAuction(items);
+    });
+
+    socket.on('botStats', (stats) => {
+      document.getElementById('healthStat').textContent = stats.health.toFixed(1);
+      document.getElementById('foodStat').textContent = stats.food;
+      document.getElementById('xpStat').textContent = stats.xp;
+      document.getElementById('saturationStat').textContent = stats.saturation.toFixed(1);
+      document.getElementById('botBalance').textContent = stats.balance;
+      document.getElementById('sessionIncome').textContent = stats.session_income;
+      document.getElementById('itemsBought').textContent = stats.items_count;
+    });
+
+    socket.on('botMessage', (msg) => {
+      const chatDiv = document.getElementById('chat');
+      const p = document.createElement('p');
+      p.textContent = msg;
+      p.className = 'text-sm py-1 border-b border-gray-100 chat-message';
+      chatDiv.appendChild(p);
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    });
+
+    socket.on('botUptime', (uptime) => {
+      const hours = Math.floor(uptime / (1000 * 60 * 60));
+      const minutes = Math.floor((uptime % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((uptime % (1000 * 60)) / 1000);
+      document.getElementById('uptimeStat').textContent = 
+        `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    });
+
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', () => {
+      addNewItem({name: 'diamond', minPricePerUnit: 7500});
+      addNewSaleItem({name: 'diamond', price: 8000});
+    });
+  </script>
+</body>
+</html>
